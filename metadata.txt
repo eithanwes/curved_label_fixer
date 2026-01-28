@@ -27,7 +27,7 @@ tags=python, RTL, labels, labeling, vector tiles
 
 homepage=http://homepage
 category=Plugins
-icon=icon.png
+icon=label_fixer_icon.png
 # experimental flag
 experimental=False
 

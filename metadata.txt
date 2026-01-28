@@ -12,8 +12,8 @@ email=dror.bogin@gmail.com
 
 about=Fix rendering of RTL labels on curved lines. Correctly display RTL text in labels of curved lines
 
-tracker=http://bugs
-repository=http://repo
+tracker=https://github.com/bogind/curved_label_fixer/issues
+repository=https://github.com/bogind/curved_label_fixer
 # End of mandatory metadata
 
 # Recommended items:

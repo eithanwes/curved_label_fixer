@@ -24,11 +24,20 @@
 from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction
+from qgis.core import (
+    QgsExpression,
+    QgsProject, 
+    QgsVectorLayer, 
+    QgsVectorTileLayer,
+    QgsPalLayerSettings, 
+    QgsVectorLayerSimpleLabeling,
+    QgsVectorTileLabeling
+)
+from .normalize_rtl_label import normalize_rtl_label
+import re
 
 # Initialize Qt resources from file resources.py
 #from .resources import *
-# Import the code for the dialog
-from .curved_label_fixer_dialog import CurvedLabelFixerDialog
 import os.path
 
 
@@ -160,11 +169,20 @@ class CurvedLabelFixer:
     def initGui(self):
         """Create the menu entries and toolbar icons inside the QGIS GUI."""
 
-        icon_path = ':/plugins/curved_label_fixer/icon.png'
+        # Check if already registered to avoid duplicates or errors
+        if "normalize_rtl_label" not in [f.name() for f in QgsExpression.Functions()]:
+            QgsExpression.registerFunction(normalize_rtl_label)
+
+        # Create action that will start plugin configuration
+        icon_path = os.path.join(self.plugin_dir, 'label_fixer_icon.png')
+
         self.add_action(
             icon_path,
             text=self.tr(u'Fix Curved RTL Labels'),
             callback=self.run,
+            add_to_menu=False,
+            add_to_toolbar=True,
+            status_tip=self.tr(u'Fix rendering of RTL labels on curved lines'),
             parent=self.iface.mainWindow())
 
         # will be set False in run()
@@ -179,6 +197,162 @@ class CurvedLabelFixer:
                 action)
             self.iface.removeToolBarIcon(action)
 
+    def unregister_custom_function(self):
+        """Removes the function from the QGIS Expression Engine."""
+        if "normalize_rtl_label" in [f.name() for f in QgsExpression.Functions()]:
+            QgsExpression.unregisterFunction("normalize_rtl_label")
+
+    def reset_rtl_normalization(self):
+        layers = QgsProject.instance().mapLayers().values()
+        func_name = "normalize_rtl_label"
+        # Regex to find the function and grab everything inside the first parentheses
+        pattern = rf"{func_name}\((.*)\)"
+        project_changed = False
+
+        for layer in layers:
+            if not layer.labelsEnabled():
+                continue
+
+            # Handle Vector Layers
+            if isinstance(layer, QgsVectorLayer):
+                labeling = layer.labeling()
+                if not labeling: continue
+                
+                new_labeling = labeling.clone()
+                if isinstance(new_labeling, QgsVectorLayerSimpleLabeling):
+                    settings = new_labeling.settings()
+                    match = re.search(pattern, settings.fieldName)
+                    if match:
+                        settings.fieldName = match.group(1)
+                        # Note: We keep isExpression=True because the inner 
+                        # part might still be an expression (e.g. "Field" + 'str')
+                        new_labeling.setSettings(settings)
+                        layer.setLabeling(new_labeling)
+                        project_changed = True
+
+                elif new_labeling.type() == 'rule-based':
+                    if self._recursive_strip_rules(new_labeling.rootRule(), pattern):
+                        layer.setLabeling(new_labeling)
+                        project_changed = True
+                
+                if project_changed: layer.triggerRepaint()
+
+            # Handle Vector Tile Layers
+            elif isinstance(layer, QgsVectorTileLayer):
+                labeling = layer.labeling()
+                if not labeling: continue
+                new_labeling = labeling.clone()
+                styles = new_labeling.styles()
+                layer_changed = False
+                for style in styles:
+                    settings = style.labelSettings()
+                    match = re.search(pattern, settings.fieldName)
+                    if match:
+                        settings.fieldName = match.group(1)
+                        style.setLabelSettings(settings)
+                        layer_changed = True
+                
+                if layer_changed:
+                    new_labeling.setStyles(styles)
+                    layer.setLabeling(new_labeling)
+                    layer.triggerRepaint()
+                    project_changed = True
+
+        if project_changed:
+            QgsProject.instance().setDirty(True)
+
+    def _recursive_strip_rules(self, parent_rule, pattern):
+        changed = False
+        for rule in parent_rule.children():
+            settings = rule.settings()
+            if settings:
+                match = re.search(pattern, settings.fieldName)
+                if match:
+                    settings.fieldName = match.group(1)
+                    rule.setSettings(settings)
+                    changed = True
+            if self._recursive_strip_rules(rule, pattern):
+                changed = True
+        return changed
+
+    def run_normalization_action(self):
+        layers = QgsProject.instance().mapLayers().values()
+        func_name = "normalize_rtl_label"
+
+        for layer in layers:
+            if not layer.labelsEnabled():
+                continue
+
+            # --- Vector Layers ---
+            if isinstance(layer, QgsVectorLayer):
+                labeling = layer.labeling()
+                if not labeling: continue
+                
+                new_labeling = labeling.clone()
+                if isinstance(new_labeling, QgsVectorLayerSimpleLabeling):
+                    settings = new_labeling.settings()
+                    if self._apply_wrapper_to_settings(settings, func_name):
+                        new_labeling.setSettings(settings)
+                        layer.setLabeling(new_labeling)
+                elif new_labeling.type() == 'rule-based':
+                    if self._process_rules(new_labeling.rootRule(), func_name):
+                        layer.setLabeling(new_labeling)
+                        # Notify QGIS that the project has changed
+                        QgsProject.instance().setDirty(True)
+                
+                layer.triggerRepaint()
+
+            # --- Vector Tile Layers ---
+            elif isinstance(layer, QgsVectorTileLayer):
+                labeling = layer.labeling()
+                if not labeling: continue
+
+                new_labeling = labeling.clone()
+                styles = new_labeling.styles()
+                changed = False
+
+                for style in styles:
+                    pal_settings = style.labelSettings()
+                    if self._apply_wrapper_to_settings(pal_settings, func_name):
+                        style.setLabelSettings(pal_settings)
+                        changed = True
+                
+                if changed:
+                    new_labeling.setStyles(styles)
+                    layer.setLabeling(new_labeling)
+                    # Vector tiles often need a full notify to reload the cache
+                    layer.triggerRepaint()
+
+    def _apply_wrapper_to_settings(self, settings, func_name):
+        """Wraps fieldName and ensures the IsExpression flag is True."""
+        current_expr = settings.fieldName
+        
+        # If it's already wrapped, skip
+        if func_name in current_expr:
+            return False
+            
+        # Only target Curved placement
+        if settings.placement == QgsPalLayerSettings.Curved:
+            # Wrap the expression
+            settings.fieldName = f"{func_name}({current_expr})"
+            # CRITICAL: Tell QGIS this is an expression, not a field name
+            settings.isExpression = True 
+            return True
+            
+        return False
+
+    def _process_rules(self, parent_rule, func_name):
+        """Recursive helper for rule-based labeling. Returns True if any change made."""
+        any_changed = False
+        for rule in parent_rule.children():
+            settings = rule.settings()
+            if settings and self._apply_wrapper_to_settings(settings, func_name):
+                rule.setSettings(settings)
+                any_changed = True
+            # Check children
+            if self._process_rules(rule, func_name):
+                any_changed = True
+        return any_changed
 
     def run(self):
         """Run method that performs all the real work"""
@@ -187,14 +361,12 @@ class CurvedLabelFixer:
         # Only create GUI ONCE in callback, so that it will only load when the plugin is started
         if self.first_start is True:
             self.first_start = False
-            self.dlg = CurvedLabelFixerDialog()
 
-        # show the dialog
-        self.dlg.show()
-        # Run the dialog event loop
-        result = self.dlg.exec_()
-        # See if OK was pressed
-        if result:
-            # Do something useful here - delete the line containing pass and
-            # substitute with your code.
-            pass
+        self.run_normalization_action()
+        
+        # Optional: feedback to the user
+        self.iface.messageBar().pushMessage(
+            "Success", "RTL Curved labels normalized and project marked as changed.", 
+            level=0, duration=3
+        )
+        

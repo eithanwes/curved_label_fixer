@@ -25,6 +25,7 @@ from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction
 from qgis.core import (
+    Qgis,
     QgsExpression,
     QgsProject, 
     QgsVectorLayer, 
@@ -217,11 +218,10 @@ class CurvedLabelFixer:
         project_changed = False
 
         for layer in layers:
-            if not layer.labelsEnabled():
-                continue
-
             # Handle Vector Layers
             if isinstance(layer, QgsVectorLayer):
+                if not layer.labelsEnabled():
+                    continue
                 labeling = layer.labeling()
                 if not labeling: continue
                 
@@ -246,6 +246,8 @@ class CurvedLabelFixer:
 
             # Handle Vector Tile Layers
             elif isinstance(layer, QgsVectorTileLayer):
+                if not layer.labelsEnabled():
+                    continue
                 labeling = layer.labeling()
                 if not labeling: continue
                 new_labeling = labeling.clone()
@@ -287,11 +289,10 @@ class CurvedLabelFixer:
         func_name = "normalize_rtl_label"
 
         for layer in layers:
-            if not layer.labelsEnabled():
-                continue
-
             # --- Vector Layers ---
             if isinstance(layer, QgsVectorLayer):
+                if not layer.labelsEnabled():
+                    continue
                 labeling = layer.labeling()
                 if not labeling: continue
                 
@@ -311,6 +312,8 @@ class CurvedLabelFixer:
 
             # --- Vector Tile Layers ---
             elif isinstance(layer, QgsVectorTileLayer):
+                if not layer.labelsEnabled():
+                    continue
                 labeling = layer.labeling()
                 if not labeling: continue
 

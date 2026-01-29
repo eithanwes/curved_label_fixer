@@ -32,7 +32,7 @@ from qgis.core import (
     QgsVectorTileLayer,
     QgsPalLayerSettings, 
     QgsVectorLayerSimpleLabeling,
-    QgsVectorTileLabeling
+    QgsVectorTileLabeling  # noqa: F401
 )
 from .normalize_rtl_label import normalize_rtl_label
 import re
@@ -223,7 +223,8 @@ class CurvedLabelFixer:
                 if not layer.labelsEnabled():
                     continue
                 labeling = layer.labeling()
-                if not labeling: continue
+                if not labeling: 
+                    continue
                 
                 new_labeling = labeling.clone()
                 if isinstance(new_labeling, QgsVectorLayerSimpleLabeling):
@@ -242,14 +243,16 @@ class CurvedLabelFixer:
                         layer.setLabeling(new_labeling)
                         project_changed = True
                 
-                if project_changed: layer.triggerRepaint()
+                if project_changed: 
+                    layer.triggerRepaint()
 
             # Handle Vector Tile Layers
             elif isinstance(layer, QgsVectorTileLayer):
                 if not layer.labelsEnabled():
                     continue
                 labeling = layer.labeling()
-                if not labeling: continue
+                if not labeling: 
+                    continue
                 new_labeling = labeling.clone()
                 styles = new_labeling.styles()
                 layer_changed = False
@@ -294,7 +297,8 @@ class CurvedLabelFixer:
                 if not layer.labelsEnabled():
                     continue
                 labeling = layer.labeling()
-                if not labeling: continue
+                if not labeling: 
+                    continue
                 
                 new_labeling = labeling.clone()
                 if isinstance(new_labeling, QgsVectorLayerSimpleLabeling):
@@ -315,7 +319,8 @@ class CurvedLabelFixer:
                 if not layer.labelsEnabled():
                     continue
                 labeling = layer.labeling()
-                if not labeling: continue
+                if not labeling: 
+                    continue
 
                 new_labeling = labeling.clone()
                 styles = new_labeling.styles()
@@ -339,7 +344,16 @@ class CurvedLabelFixer:
         
         # If it's already wrapped, skip
         if func_name in current_expr:
-            return False
+            if settings.placement == QgsPalLayerSettings.Curved:
+                return False
+            else:
+                # If placement changed from Curved to something else, we should unwrap
+                match = re.search(rf"{func_name}\((.*)\)", current_expr)
+                if match:
+                    settings.fieldName = match.group(1)
+                    settings.isExpression = True  # Keep as expression
+                    return True
+                return False
             
         # Only target Curved placement
         if settings.placement == QgsPalLayerSettings.Curved:

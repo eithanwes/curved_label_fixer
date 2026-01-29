@@ -1,5 +1,0 @@
-<RCC>
-    <qresource prefix="/plugins/curved_label_fixer" >
-        <file>icon.png</file>
-    </qresource>
-</RCC>

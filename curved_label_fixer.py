@@ -172,6 +172,9 @@ class CurvedLabelFixer:
         # Check if already registered to avoid duplicates or errors
         if "normalize_rtl_label" not in [f.name() for f in QgsExpression.Functions()]:
             QgsExpression.registerFunction(normalize_rtl_label)
+        else:
+            self.unregister_custom_function()
+            QgsExpression.registerFunction(normalize_rtl_label)
 
         # Create action that will start plugin configuration
         icon_path = os.path.join(self.plugin_dir, 'label_fixer_icon.png')
@@ -199,8 +202,12 @@ class CurvedLabelFixer:
 
     def unregister_custom_function(self):
         """Removes the function from the QGIS Expression Engine."""
-        if "normalize_rtl_label" in [f.name() for f in QgsExpression.Functions()]:
-            QgsExpression.unregisterFunction("normalize_rtl_label")
+        try:
+            if "normalize_rtl_label" in [f.name() for f in QgsExpression.Functions()]:
+                    QgsExpression.unregisterFunction("normalize_rtl_label")
+        except Exception as e:
+            self.iface.messageBar().pushMessage("Error", f"Failed to unregister function: {e}",level=Qgis.Critical, duration=5)
+
 
     def reset_rtl_normalization(self):
         layers = QgsProject.instance().mapLayers().values()

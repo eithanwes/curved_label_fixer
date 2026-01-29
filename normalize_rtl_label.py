@@ -15,13 +15,14 @@ def normalize_rtl_label(values, feature, parent):
     if not isinstance(val, str):
         raise ValueError('normalize_rtl_label: input is not a string')
 
-    # Arabic letter forms: [isolated, final, initial, medial]
-    # Only including most common letters for brevity
+    # Mapping: [isolated, final, initial, medial]
+    # Refined to include Kurdish/Persian and ensure dotless forms for Kurdish E (ێ)
     arabic_forms = {
+        '\u0621': ['\uFE80', '\uFE80', '\uFE80', '\uFE80'],  # Hamza
+        '\u0622': ['\uFE81', '\uFE82', '\uFE81', '\uFE82'],  # Alef with Madda
         '\u0627': ['\uFE8D', '\uFE8E', '\uFE8D', '\uFE8E'],  # Alef
         '\u0628': ['\uFE8F', '\uFE90', '\uFE91', '\uFE92'],  # Beh
         '\u062A': ['\uFE95', '\uFE96', '\uFE97', '\uFE98'],  # Teh
-        '\u062B': ['\uFE99', '\uFE9A', '\uFE9B', '\uFE9C'],  # Theh
         '\u062C': ['\uFE9D', '\uFE9E', '\uFE9F', '\uFEA0'],  # Jeem
         '\u062D': ['\uFEA1', '\uFEA2', '\uFEA3', '\uFEA4'],  # Hah
         '\u062E': ['\uFEA5', '\uFEA6', '\uFEA7', '\uFEA8'],  # Khah
@@ -45,120 +46,101 @@ def normalize_rtl_label(values, feature, parent):
         '\u0646': ['\uFEE5', '\uFEE6', '\uFEE7', '\uFEE8'],  # Noon
         '\u0647': ['\uFEE9', '\uFEEA', '\uFEEB', '\uFEEC'],  # Heh
         '\u0648': ['\uFEED', '\uFEEE', '\uFEED', '\uFEEE'],  # Waw
-        '\u064A': ['\uFEF1', '\uFEF2', '\uFEF3', '\uFEF4'],  # Yeh
-        '\u0629': ['\uFE93', '\uFE94', '\uFE93', '\uFE94'],  # Teh Marbuta
+        '\u064A': ['\uFEF1', '\uFEF2', '\uFEF3', '\uFEF4'],  # Yeh (Arabic)
+        '\u067E': ['\uFB56', '\uFB57', '\uFB58', '\uFB59'],  # Peh (پ)
+        '\u0686': ['\uFB7A', '\uFB7B', '\uFB7C', '\uFB7D'],  # Tcheh (چ)
+        # Kurdish R (ڕ): Right-connecting only
+        '\u0695': ['\uFB8C', '\uFB8D', '\uFB8C', '\uFB8D'],
+        
+        # Kurdish Lam (ڵ): Full connectivity with the small 'v' diacritic
+        '\u06B5': ['\uFBB2', '\uFBB3', '\uFBB4', '\uFBB5'],
+        
+        # Kurdish O (ۆ): Right-connecting only
+        '\u06C6': ['\uFB84', '\uFB85', '\uFB84', '\uFB85'],
+        
+        # Kurdish E (ێ): Using dotless Farsi Yeh presentation forms.
+        # This is the ONLY way to force dotless initial/medial shapes 
+        # for curved labels in most QGIS-compatible fonts.
+        '\u06CE': ['\uFBFC', '\uFBFD', '\uFBFE', '\uFBFF'], 
+        
+        # Kurdish Ae (ە): Right-connecting only (represented by visual Heh forms)
+        '\u06D5': ['\uFEE9', '\uFEEA', '\uFEE9', '\uFEEA'],
+        
+        # Farsi/Kurdish Yeh (ی): Dotless in all positions
+        '\u06CC': ['\uFBFC', '\uFBFD', '\uFBFE', '\uFBFF'],
     }
     
-    # Non-connecting letters (only have isolated and final forms)
-    non_connecting = {'\u0627', '\u062F', '\u0630', '\u0631', '\u0632', '\u0648'}
-    
+    # Letters that only connect to the RIGHT (previous character)
+    right_only = {
+        '\u0621', '\u0622', '\u0623', '\u0624', '\u0625', '\u0627', 
+        '\u062F', '\u0630', '\u0631', '\u0632', '\u0648', '\u0649', 
+        '\u0695', '\u06C6', '\u06D5'
+    }
+
     def reshape_arabic(text):
         """Convert Arabic text to presentation forms based on position"""
         result = []
         chars = list(text)
-        
         for i, ch in enumerate(chars):
             if ch not in arabic_forms:
-                # Not a shapeable Arabic letter, keep as-is
                 result.append(ch)
                 continue
             
-            # Determine position: 0=isolated, 1=final, 2=initial, 3=medial
-            prev_connects = i > 0 and chars[i-1] in arabic_forms and chars[i-1] not in non_connecting
-            next_connects = i < len(chars) - 1 and chars[i+1] in arabic_forms
+            # Connection logic matching your successful terminal test
+            conn_prev = i > 0 and chars[i-1] in arabic_forms and chars[i-1] not in right_only
+            conn_next = i < len(chars) - 1 and chars[i+1] in arabic_forms and ch not in right_only
             
-            if prev_connects and next_connects:
-                form_idx = 3  # medial
-            elif prev_connects:
-                form_idx = 1  # final
-            elif next_connects and ch not in non_connecting:
-                form_idx = 2  # initial
+            if conn_prev and conn_next:
+                idx = 3 # medial
+            elif conn_prev:
+                idx = 1 # final
+            elif conn_next:
+                idx = 2 # initial
             else:
-                form_idx = 0  # isolated
+                idx = 0 # isolated
             
-            result.append(arabic_forms[ch][form_idx])
-        
+            result.append(arabic_forms[ch][idx])
         return ''.join(result)
 
-    # Define punctuation mappings for RTL contexts
-    rtl_punctuation_map = str.maketrans({
-        '(': ')',
-        ')': '(',
-        '[': ']',
-        ']': '[',
-        '{': '}',
-        '}': '{',
-        '<': '>',
-        '>': '<'
-    })
-
-    # Step 1: Split into directional runs
+    # ... (Keep the rest of your directional run and reversing logic from normalize_rtl_label.py)
+    rtl_punctuation_map = str.maketrans({'(': ')', ')': '(', '[': ']', ']': '[', '{': '}', '}': '{', '<': '>', '>': '<'})
     runs = []
     current_dir = None
     current_text = ''
     for ch in val:
         bidi = unicodedata.bidirectional(ch)
-        if bidi in ('R', 'AL', 'RLE', 'RLO'):
-            dir_flag = 'RTL'
-        elif bidi in ('L', 'LRE', 'LRO'):
-            dir_flag = 'LTR'
-        else:
-            dir_flag = 'Neutral'
-
+        dir_flag = 'RTL' if bidi in ('R', 'AL', 'RLE', 'RLO') else 'LTR' if bidi in ('L', 'LRE', 'LRO') else 'Neutral'
         if dir_flag != current_dir:
-            if current_text:
+            if current_text: 
                 runs.append((current_text, current_dir))
             current_text = ch
             current_dir = dir_flag
-        else:
+        else: 
             current_text += ch
-
-    if current_text:
+    if current_text: 
         runs.append((current_text, current_dir))
 
-    # Step 2: Reverse text of RTL runs and adjust punctuation
     reversed_runs = []
     for text, direction in runs:
         if direction == 'RTL':
-            # Check if text contains Arabic characters
-            has_arabic = any('\u0600' <= ch <= '\u06FF' or '\u0750' <= ch <= '\u077F' 
-                            or '\u08A0' <= ch <= '\u08FF' for ch in text)
-            
-            if has_arabic:
-                # For Arabic: reshape to presentation forms, then reverse
-                reshaped = reshape_arabic(text)
-                adjusted_text = reshaped[::-1].translate(rtl_punctuation_map)
-            else:
-                # For Hebrew and other RTL: reverse character order
-                adjusted_text = text[::-1].translate(rtl_punctuation_map)
-            
+            has_arabic = any('\u0600' <= ch <= '\u06FF' or '\u0750' <= ch <= '\u077F' or '\u08A0' <= ch <= '\u08FF' for ch in text)
+            adjusted_text = reshape_arabic(text)[::-1].translate(rtl_punctuation_map) if has_arabic else text[::-1].translate(rtl_punctuation_map)
             reversed_runs.append((adjusted_text, direction))
-        else:
+        else: 
             reversed_runs.append((text, direction))
 
-    # Step 3: Detect and reverse RTL run groups (optionally with surrounding neutrals)
     final_runs = []
     temp_group = []
-
     def flush_group():
         if temp_group:
-            # Reverse the order of RTL+neutral runs inside the group
             final_runs.extend(reversed(temp_group))
             temp_group.clear()
-
     for text, direction in reversed_runs:
-        if direction == 'RTL' or direction == 'Neutral':
+        if direction in ('RTL', 'Neutral'): 
             temp_group.append((text, direction))
         else:
             flush_group()
             final_runs.append((text, direction))
-
-    flush_group()  # In case it ended with an RTL/neutral group
-
-    # Step 4: Rebuild final string
-    final_text = ''.join(text for text, _ in final_runs)
-
-    # Step 5: Correct bracket directions in the final string
-    final_text = final_text.translate(rtl_punctuation_map)
-
-    return final_text
+    flush_group()
+    
+    return ''.join(text for text, _ in final_runs).translate(rtl_punctuation_map)

@@ -6,7 +6,7 @@
 name=Curved RTL Label Fixer
 qgisMinimumVersion=3.34
 description=Fix rendering of RTL labels on curved lines
-version=0.2.1
+version=0.3
 author=Dror Bogin
 email=dror.bogin@gmail.com
 
@@ -23,6 +23,9 @@ repository=https://github.com/bogind/curved_label_fixer
 hasProcessingProvider=no
 # Uncomment the following line and add your changelog:
 # changelog=
+    2026-01-30 Version 0.3
+        - Moved action button to labeling toolbar
+        - Arabic character rendering fixes
     2026-01-29 Version 0.2.1
         - Feature:
             - Added removal of function from expression if placement  is not curved and function exists in the expression

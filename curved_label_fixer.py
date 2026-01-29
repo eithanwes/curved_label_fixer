@@ -23,7 +23,7 @@
 """
 from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication
 from qgis.PyQt.QtGui import QIcon
-from qgis.PyQt.QtWidgets import QAction
+from qgis.PyQt.QtWidgets import QAction, QToolBar
 from qgis.core import (
     Qgis,
     QgsExpression,
@@ -55,6 +55,8 @@ class CurvedLabelFixer:
         """
         # Save reference to the QGIS interface
         self.iface = iface
+        mainWindow = self.iface.mainWindow()
+        self.label_toolbar = mainWindow.findChild(QToolBar, 'mLabelToolBar')
         # initialize plugin directory
         self.plugin_dir = os.path.dirname(__file__)
         # initialize locale
@@ -91,6 +93,39 @@ class CurvedLabelFixer:
         """
         # noinspection PyTypeChecker,PyArgumentList,PyCallByClass
         return QCoreApplication.translate('CurvedLabelFixer', message)
+
+    def add_action_to_label_toolbar(
+            self,
+            icon_path,
+            text,
+            callback,
+            enabled_flag=True,
+            status_tip=None,
+            whats_this=None,
+            parent=None):
+        """Add an action to the Label toolbar.
+        """
+        icon = QIcon(icon_path)
+        action = QAction(icon, text, parent)
+        action.triggered.connect(callback)
+        action.setEnabled(enabled_flag)
+
+        if status_tip is not None:
+            action.setStatusTip(status_tip)
+
+        if whats_this is not None:
+            action.setWhatsThis(whats_this)
+
+        
+        if self.label_toolbar is not None:
+            self.label_toolbar.addAction(action)
+            self.actions.append(action)
+
+            return action
+        else:
+            self.iface.messageBar().pushMessage(
+                "Error", "Label toolbar not found.", level=Qgis.Critical, duration=5)
+            return None
 
 
     def add_action(
@@ -180,12 +215,10 @@ class CurvedLabelFixer:
         # Create action that will start plugin configuration
         icon_path = os.path.join(self.plugin_dir, 'label_fixer_icon.png')
 
-        self.add_action(
+        self.add_action_to_label_toolbar(
             icon_path,
             text=self.tr(u'Fix Curved RTL Labels'),
             callback=self.run,
-            add_to_menu=False,
-            add_to_toolbar=True,
             status_tip=self.tr(u'Fix rendering of RTL labels on curved lines'),
             parent=self.iface.mainWindow())
 
@@ -199,7 +232,7 @@ class CurvedLabelFixer:
             self.iface.removePluginMenu(
                 self.tr(u'&Curved RTL Label Fixer'),
                 action)
-            self.iface.removeToolBarIcon(action)
+            self.label_toolbar.removeAction(action)
 
     def unregister_custom_function(self):
         """Removes the function from the QGIS Expression Engine."""

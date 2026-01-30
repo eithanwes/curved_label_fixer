@@ -25,13 +25,13 @@ hasProcessingProvider=no
 # changelog=
     2026-01-30 Version 0.3
         - Moved action button to labeling toolbar
-        - Arabic character rendering fixes
+        - Arabic, Kurdish, Farsi character rendering fixes
     2026-01-29 Version 0.2.1
         - Feature:
             - Added removal of function from expression if placement  is not curved and function exists in the expression
     2026-01-29 Version 0.2
         - Bug fixes:
-            - No more crashing when raster layers are on the canavs
+            - No more crashing when raster layers are on the canvas
             - Fixed issue with Arabic characters rendering without regard to position in the word
             
     2026-01-28 Version 0.1

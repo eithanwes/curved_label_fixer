@@ -424,6 +424,6 @@ class CurvedLabelFixer:
         # Optional: feedback to the user
         self.iface.messageBar().pushMessage(
             "Success", "RTL Curved labels normalized and project marked as changed.", 
-            level=0, duration=3
+            level=Qgis.Success, duration=3
         )
         

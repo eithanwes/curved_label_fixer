@@ -24,13 +24,13 @@
 from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction, QToolBar
-from qgis.core import (
+from qgis.core import (  # noqa: F401
     Qgis,
     QgsExpression,
-    QgsProject, 
-    QgsVectorLayer, 
+    QgsProject,
+    QgsVectorLayer,
     QgsVectorTileLayer,
-    QgsPalLayerSettings, 
+    QgsPalLayerSettings,
     QgsVectorLayerSimpleLabeling,
     QgsVectorTileLabeling  # noqa: F401
 )
@@ -38,7 +38,6 @@ from .normalize_rtl_label import normalize_rtl_label
 import re
 
 # Initialize Qt resources from file resources.py
-#from .resources import *
 import os.path
 
 
@@ -116,7 +115,6 @@ class CurvedLabelFixer:
         if whats_this is not None:
             action.setWhatsThis(whats_this)
 
-        
         if self.label_toolbar is not None:
             self.label_toolbar.addAction(action)
             self.actions.append(action)
@@ -124,21 +122,22 @@ class CurvedLabelFixer:
             return action
         else:
             self.iface.messageBar().pushMessage(
-                "Error", "Label toolbar not found.", level=Qgis.Critical, duration=5)
+                "Error", "Label toolbar not found.",
+                level=Qgis.Critical,
+                duration=5)
             return None
 
-
     def add_action(
-        self,
-        icon_path,
-        text,
-        callback,
-        enabled_flag=True,
-        add_to_menu=True,
-        add_to_toolbar=True,
-        status_tip=None,
-        whats_this=None,
-        parent=None):
+            self,
+            icon_path,
+            text,
+            callback,
+            enabled_flag=True,
+            add_to_menu=True,
+            add_to_toolbar=True,
+            status_tip=None,
+            whats_this=None,
+            parent=None):
         """Add a toolbar icon to the toolbar.
 
         :param icon_path: Path to the icon for this action. Can be a resource
@@ -206,7 +205,9 @@ class CurvedLabelFixer:
         """Create the menu entries and toolbar icons inside the QGIS GUI."""
 
         # Check if already registered to avoid duplicates or errors
-        if "normalize_rtl_label" not in [f.name() for f in QgsExpression.Functions()]:
+        if "normalize_rtl_label" not in [
+            f.name() for f in QgsExpression.Functions()
+        ]:
             QgsExpression.registerFunction(normalize_rtl_label)
         else:
             self.unregister_custom_function()
@@ -225,7 +226,6 @@ class CurvedLabelFixer:
         # will be set False in run()
         self.first_start = True
 
-
     def unload(self):
         """Removes the plugin menu item and icon from QGIS GUI."""
         for action in self.actions:
@@ -237,16 +237,22 @@ class CurvedLabelFixer:
     def unregister_custom_function(self):
         """Removes the function from the QGIS Expression Engine."""
         try:
-            if "normalize_rtl_label" in [f.name() for f in QgsExpression.Functions()]:
-                    QgsExpression.unregisterFunction("normalize_rtl_label")
+            if "normalize_rtl_label" in [
+                f.name() for f in QgsExpression.Functions()
+                    ]:
+                QgsExpression.unregisterFunction("normalize_rtl_label")
         except Exception as e:
-            self.iface.messageBar().pushMessage("Error", f"Failed to unregister function: {e}",level=Qgis.Critical, duration=5)
-
+            self.iface.messageBar().pushMessage(
+                            "Error",
+                            f"Failed to unregister function: {e}",
+                            level=Qgis.Critical, duration=5
+                            )
 
     def reset_rtl_normalization(self):
         layers = QgsProject.instance().mapLayers().values()
         func_name = "normalize_rtl_label"
-        # Regex to find the function and grab everything inside the first parentheses
+        # Regex to find the function and
+        # grab everything inside the first parentheses
         pattern = rf"{func_name}\((.*)\)"
         project_changed = False
 
@@ -256,27 +262,28 @@ class CurvedLabelFixer:
                 if not layer.labelsEnabled():
                     continue
                 labeling = layer.labeling()
-                if not labeling: 
+                if not labeling:
                     continue
-                
                 new_labeling = labeling.clone()
                 if isinstance(new_labeling, QgsVectorLayerSimpleLabeling):
                     settings = new_labeling.settings()
                     match = re.search(pattern, settings.fieldName)
                     if match:
                         settings.fieldName = match.group(1)
-                        # Note: We keep isExpression=True because the inner 
-                        # part might still be an expression (e.g. "Field" + 'str')
+                        # Note: We keep isExpression=True because the inner
+                        # part might still be an expression
+                        # (e.g. "Field" + 'str')
                         new_labeling.setSettings(settings)
                         layer.setLabeling(new_labeling)
                         project_changed = True
 
                 elif new_labeling.type() == 'rule-based':
-                    if self._recursive_strip_rules(new_labeling.rootRule(), pattern):
+                    if self._recursive_strip_rules(new_labeling.rootRule(),
+                                                   pattern):
                         layer.setLabeling(new_labeling)
                         project_changed = True
-                
-                if project_changed: 
+
+                if project_changed:
                     layer.triggerRepaint()
 
             # Handle Vector Tile Layers
@@ -284,7 +291,7 @@ class CurvedLabelFixer:
                 if not layer.labelsEnabled():
                     continue
                 labeling = layer.labeling()
-                if not labeling: 
+                if not labeling:
                     continue
                 new_labeling = labeling.clone()
                 styles = new_labeling.styles()
@@ -296,7 +303,6 @@ class CurvedLabelFixer:
                         settings.fieldName = match.group(1)
                         style.setLabelSettings(settings)
                         layer_changed = True
-                
                 if layer_changed:
                     new_labeling.setStyles(styles)
                     layer.setLabeling(new_labeling)
@@ -330,9 +336,8 @@ class CurvedLabelFixer:
                 if not layer.labelsEnabled():
                     continue
                 labeling = layer.labeling()
-                if not labeling: 
+                if not labeling:
                     continue
-                
                 new_labeling = labeling.clone()
                 if isinstance(new_labeling, QgsVectorLayerSimpleLabeling):
                     settings = new_labeling.settings()
@@ -344,7 +349,6 @@ class CurvedLabelFixer:
                         layer.setLabeling(new_labeling)
                         # Notify QGIS that the project has changed
                         QgsProject.instance().setDirty(True)
-                
                 layer.triggerRepaint()
 
             # --- Vector Tile Layers ---
@@ -352,7 +356,7 @@ class CurvedLabelFixer:
                 if not layer.labelsEnabled():
                     continue
                 labeling = layer.labeling()
-                if not labeling: 
+                if not labeling:
                     continue
 
                 new_labeling = labeling.clone()
@@ -361,10 +365,10 @@ class CurvedLabelFixer:
 
                 for style in styles:
                     pal_settings = style.labelSettings()
-                    if self._apply_wrapper_to_settings(pal_settings, func_name):
+                    if self._apply_wrapper_to_settings(pal_settings,
+                                                       func_name):
                         style.setLabelSettings(pal_settings)
                         changed = True
-                
                 if changed:
                     new_labeling.setStyles(styles)
                     layer.setLabeling(new_labeling)
@@ -374,36 +378,36 @@ class CurvedLabelFixer:
     def _apply_wrapper_to_settings(self, settings, func_name):
         """Wraps fieldName and ensures the IsExpression flag is True."""
         current_expr = settings.fieldName
-        
         # If it's already wrapped, skip
         if func_name in current_expr:
             if settings.placement == QgsPalLayerSettings.Curved:
                 return False
             else:
-                # If placement changed from Curved to something else, we should unwrap
+                # If placement changed from Curved to something else,
+                # we should unwrap
                 match = re.search(rf"{func_name}\((.*)\)", current_expr)
                 if match:
                     settings.fieldName = match.group(1)
                     settings.isExpression = True  # Keep as expression
                     return True
                 return False
-            
         # Only target Curved placement
         if settings.placement == QgsPalLayerSettings.Curved:
             # Wrap the expression
             settings.fieldName = f"{func_name}({current_expr})"
             # CRITICAL: Tell QGIS this is an expression, not a field name
-            settings.isExpression = True 
+            settings.isExpression = True
             return True
-            
         return False
 
     def _process_rules(self, parent_rule, func_name):
-        """Recursive helper for rule-based labeling. Returns True if any change made."""
+        """Recursive helper for rule-based labeling.
+        Returns True if any change made."""
         any_changed = False
         for rule in parent_rule.children():
             settings = rule.settings()
-            if settings and self._apply_wrapper_to_settings(settings, func_name):
+            if settings and self._apply_wrapper_to_settings(settings,
+                                                            func_name):
                 rule.setSettings(settings)
                 any_changed = True
             # Check children
@@ -414,16 +418,17 @@ class CurvedLabelFixer:
     def run(self):
         """Run method that performs all the real work"""
 
-        # Create the dialog with elements (after translation) and keep reference
-        # Only create GUI ONCE in callback, so that it will only load when the plugin is started
+        # Create the dialog with elements
+        # (after translation) and keep reference
+        # Only create GUI ONCE in callback,
+        # so that it will only load when the plugin is started
         if self.first_start is True:
             self.first_start = False
 
         self.run_normalization_action()
-        
         # Optional: feedback to the user
         self.iface.messageBar().pushMessage(
-            "Success", "RTL Curved labels normalized and project marked as changed.", 
+            "Success",
+            "RTL Curved labels normalized and project marked as changed.",
             level=Qgis.Success, duration=3
         )
-        

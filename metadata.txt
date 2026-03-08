@@ -5,6 +5,7 @@
 [general]
 name=Curved RTL Label Fixer
 qgisMinimumVersion=3.34
+qgisMaximumVersion=4.99
 description=Fix rendering of RTL labels on curved lines
 version=0.3.1
 author=Dror Bogin
